@@ -1,0 +1,48 @@
+--- hex-eyes-engine/index.html (原始)
+
+
++++ hex-eyes-engine/index.html (修改后)
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hex Eyes Engine</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      overflow: hidden;
+      background: #000;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    #grid-canvas {
+      z-index: 1;
+    }
+    #sat-canvas {
+      z-index: 2;
+    }
+    #line-canvas {
+      z-index: 3;
+    }
+    #focus-overlay {
+      z-index: 4;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="grid-canvas"></canvas>
+  <canvas id="sat-canvas"></canvas>
+  <canvas id="line-canvas"></canvas>
+  <div id="focus-overlay"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
