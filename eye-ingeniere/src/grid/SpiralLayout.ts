@@ -1,7 +1,3 @@
---- hex-eyes-engine/src/grid/SpiralLayout.ts (原始)
-
-
-+++ hex-eyes-engine/src/grid/SpiralLayout.ts (修改后)
 /**
  * SpiralLayout — Generación de espiral para layout de celdas
  *
@@ -122,19 +118,27 @@ export class SpiralLayout implements ISpiralLayout {
 
     const result: OffsetCoord[] = [];
 
-    // Direcciones de los 6 lados del hexágono (en coordenadas offset)
-    // Orden: empieza arriba-derecha y va clockwise
-    const directions = this.getRingDirections(ring);
-
-    let current = { ...directions.start };
-    result.push({ ...current });
+    // Punto de partida: desde el centro, sube 'ring' pasos en dirección (0, -1)
+    let current = { col: center.col, row: center.row - ring };
 
     // Recorre los 6 lados del anillo
+    // Cada lado tiene exactamente 'ring' pasos, pero NO incluimos el último punto de cada lado
+    // porque será el primer punto del siguiente lado
+    const sideDirs = [
+      { col: 1, row: 0 },   // lado 1: hacia derecha
+      { col: 0, row: 1 },   // lado 2: hacia abajo-derecha
+      { col: -1, row: 1 },  // lado 3: hacia abajo-izquierda
+      { col: -1, row: 0 },  // lado 4: hacia izquierda
+      { col: 0, row: -1 },  // lado 5: hacia arriba-izquierda
+      { col: 1, row: -1 }   // lado 6: hacia arriba-derecha
+    ];
+
     for (let side = 0; side < 6; side++) {
-      const dir = directions.sideDirs[side];
+      const dir = sideDirs[side];
+      // Agrega 'ring' puntos por lado, incluyendo el punto actual antes de moverse
       for (let step = 0; step < ring; step++) {
-        current = { col: current.col + dir.col, row: current.row + dir.row };
         result.push({ ...current });
+        current = { col: current.col + dir.col, row: current.row + dir.row };
       }
     }
 
@@ -170,14 +174,20 @@ export class SpiralLayout implements ISpiralLayout {
       { col: 1, row: -1 }
     ];
 
-    // Punto de partida: desde el centro, sube 'ring' pasos en dirección arriba
-    const startDir = ring % 2 === 0 ? evenDirs[4] : oddDirs[4];
-    const start = { col: startDir.col * ring, row: startDir.row * ring };
+    // Punto de partida: desde el centro (0,0), sube 'ring' pasos en dirección arriba-izquierda
+    // Para odd-row offset, la dirección "arriba" es (0, -1) tanto para filas pares como impares
+    const start = { col: 0, row: -ring };
 
     // Direcciones para recorrer los lados (clockwise desde el punto de partida)
-    const sideDirs = ring % 2 === 0 ?
-      [evenDirs[0], evenDirs[1], evenDirs[2], evenDirs[3], evenDirs[4], evenDirs[5]] :
-      [oddDirs[0], oddDirs[1], oddDirs[2], oddDirs[3], oddDirs[4], oddDirs[5]];
+    // Orden: derecha, abajo-derecha, abajo-izquierda, izquierda, arriba-izquierda, arriba-derecha
+    const sideDirs = [
+      { col: 1, row: 0 },   // lado 1: hacia derecha
+      { col: 0, row: 1 },   // lado 2: hacia abajo-derecha
+      { col: -1, row: 1 },  // lado 3: hacia abajo-izquierda
+      { col: -1, row: 0 },  // lado 4: hacia izquierda
+      { col: 0, row: -1 },  // lado 5: hacia arriba-izquierda
+      { col: 1, row: -1 }   // lado 6: hacia arriba-derecha (vuelve al inicio)
+    ];
 
     return { start, sideDirs };
   }

@@ -1,7 +1,4 @@
---- hex-eyes-engine/src/core/types.ts (原始)
-
-
-+++ hex-eyes-engine/src/core/types.ts (修改后)
+//+++ hex-eyes-engine/src/core/types.ts (修改后)
 /**
  * Tipos compartidos — Contrato técnico §4.0
  *
@@ -68,6 +65,16 @@ export interface CellPlacement extends OffsetCoord {
   center: Vec2;
   scale01: number;
   alpha01: number;
+}
+
+/**
+ * Datos completos para renderizar un frame
+ * [CONTRATO] Usado por IRenderLayer.draw()
+ */
+export interface FrameData {
+  cells: CellPlacement[];
+  eyeStates: Map<string, EyeVisualState>; // key: "col,row"
+  cursorScreenPos: Vec2 | null;
 }
 
 /**

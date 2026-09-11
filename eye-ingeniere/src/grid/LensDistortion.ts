@@ -1,7 +1,4 @@
---- hex-eyes-engine/src/grid/LensDistortion.ts (原始)
 
-
-+++ hex-eyes-engine/src/grid/LensDistortion.ts (修改后)
 /**
  * LensDistortion — Distorsión de lente radial para efecto de ojo de pez
  *
