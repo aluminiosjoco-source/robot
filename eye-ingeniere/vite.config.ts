@@ -18,7 +18,7 @@ export default defineConfig({
     open: true
   },
   build: {
-    target: 'es2022',
+    target: 'es2023',
     sourcemap: true,
     minify: 'esbuild'
   }

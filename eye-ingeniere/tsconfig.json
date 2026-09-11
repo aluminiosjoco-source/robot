@@ -1,29 +1,18 @@
+
 {
   "compilerOptions": {
-    "target": "es2023",
-    "module": "esnext",
+    "target": "ES2023",
+    "module": "ESNext",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "types": ["vite/client"],
-    "allowArbitraryExtensions": true,
-    "skipLibCheck": true,
-
-    /* Bundler mode */
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
-    "moduleDetection": "force",
-    "noEmit": true,
-
-    /* Linting */
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true,
-     "strict": true,
-    "esModuleInterop": true,  
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "isolatedModules": true,  
+    "isolatedModules": true,
+    "noEmit": true,
+    "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
     "outDir": "./dist",
@@ -39,7 +28,6 @@
       "@data/*": ["data/*"]
     }
   },
-  "include": ["src"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }
-
