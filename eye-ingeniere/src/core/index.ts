@@ -1,7 +1,4 @@
---- hex-eyes-engine/src/core/index.ts (原始)
-
-
-+++ hex-eyes-engine/src/core/index.ts (修改后)
+//+++ hex-eyes-engine/src/core/index.ts
 /**
  * Export barrel — Core module
  *

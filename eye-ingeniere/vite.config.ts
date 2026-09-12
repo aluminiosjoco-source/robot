@@ -1,4 +1,4 @@
-
+//--- hex-eyes-engine/vite.config.ts 
 import { defineConfig } from 'vite';
 
 export default defineConfig({
@@ -18,7 +18,7 @@ export default defineConfig({
     open: true
   },
   build: {
-    target: 'es2023',
+    target: 'es2022',
     sourcemap: true,
     minify: 'esbuild'
   }

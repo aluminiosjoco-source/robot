@@ -1,7 +1,4 @@
---- hex-eyes-engine/src/grid/HexCoords.ts (原始)
-
-
-+++ hex-eyes-engine/src/grid/HexCoords.ts (修改后)
+//--- hex-eyes-engine/src/grid/HexCoords.ts
 /**
  * HexCoords — Coordenadas hexagonales offset (odd-row, flat-top)
  *

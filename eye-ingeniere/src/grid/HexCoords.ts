@@ -1,4 +1,4 @@
-
+//--- hex-eyes-engine/src/grid/HexCoords.ts
 /**
  * HexCoords — Coordenadas hexagonales offset (odd-row, flat-top)
  *
@@ -131,15 +131,27 @@ export class HexCoords implements IHexCoords {
    */
   neighbors(coord: OffsetCoord): OffsetCoord[] {
     // Direcciones para filas pares vs impares (odd-row offset)
+    // Fila par (row%2==0):
+    //   Los vecinos son: derecha, abajo-derecha, abajo-izquierda, izquierda, arriba-izquierda, arriba-derecha
     const evenRowDirs = [
-      { col: 0, row: -1 }, { col: 1, row: -1 },
-      { col: 1, row: 0 },  { col: 0, row: 1 },
-      { col: -1, row: 0 }, { col: -1, row: -1 }
+      { col: 1, row: 0 },   // derecha
+      { col: 0, row: 1 },   // abajo-derecha
+      { col: -1, row: 1 },  // abajo-izquierda
+      { col: -1, row: 0 },  // izquierda
+      { col: 0, row: -1 },  // arriba-izquierda
+      { col: 1, row: -1 }   // arriba-derecha
     ];
+
+    // Fila impar (row%2==1):
+    //   Los vecinos son: derecha, abajo-derecha, abajo-izquierda, izquierda, arriba-izquierda, arriba-derecha
+    //   Pero las direcciones "abajo" y "arriba" se ajustan
     const oddRowDirs = [
-      { col: -1, row: -1 }, { col: 0, row: -1 },
-      { col: 1, row: 0 },   { col: 0, row: 1 },
-      { col: -1, row: 0 },  { col: -1, row: 1 }
+      { col: 1, row: 0 },   // derecha
+      { col: 0, row: 1 },   // abajo-derecha
+      { col: -1, row: 1 },  // abajo-izquierda
+      { col: -1, row: 0 },  // izquierda
+      { col: 0, row: -1 },  // arriba-izquierda
+      { col: 1, row: -1 }   // arriba-derecha
     ];
 
     const dirs = (coord.row % 2 + 2) % 2 === 0 ? evenRowDirs : oddRowDirs;

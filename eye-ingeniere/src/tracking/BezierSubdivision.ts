@@ -1,7 +1,4 @@
---- hex-eyes-engine/src/tracking/BezierSubdivision.ts (原始)
-
-
-+++ hex-eyes-engine/src/tracking/BezierSubdivision.ts (修改后)
+//--- hex-eyes-engine/src/tracking/BezierSubdivision.ts
 /**
  * BezierSubdivision — Álgebra de curvas de Bézier cúbicas
  *

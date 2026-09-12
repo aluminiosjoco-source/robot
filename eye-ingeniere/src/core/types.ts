@@ -1,4 +1,4 @@
-//+++ hex-eyes-engine/src/core/types.ts (修改后)
+//--- hex-eyes-engine/src/core/types.ts
 /**
  * Tipos compartidos — Contrato técnico §4.0
  *

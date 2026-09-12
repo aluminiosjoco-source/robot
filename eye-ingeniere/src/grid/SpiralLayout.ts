@@ -1,3 +1,4 @@
+//--- hex-eyes-engine/src/grid/SpiralLayout.ts
 /**
  * SpiralLayout — Generación de espiral para layout de celdas
  *

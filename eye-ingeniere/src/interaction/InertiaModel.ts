@@ -1,4 +1,4 @@
-//+++ hex-eyes-engine/src/interaction/InertiaModel.ts
+//--- hex-eyes-engine/src/interaction/InertiaModel.ts 
 /**
  * InertiaModel — Modelo de inercia con fricción exponencial
  *

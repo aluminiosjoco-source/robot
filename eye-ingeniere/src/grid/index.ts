@@ -1,4 +1,4 @@
-
+//--- hex-eyes-engine/src/grid/index.ts 
 /**
  * Export barrel — Grid module
  *

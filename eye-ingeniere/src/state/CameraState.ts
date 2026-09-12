@@ -1,5 +1,4 @@
-
-//+++ hex-eyes-engine/src/state/CameraState.ts
+//--- hex-eyes-engine/src/state/CameraState.ts 
 /**
  * CameraState — Estado encapsulado de la cámara
  *
@@ -115,7 +114,7 @@ export class CameraState {
   /**
    * Restaura estado desde JSON
    */
-  fromJSON( { offset: Vec2; zoom: number; targetZoom: number }): void {
+  fromJSON(data: { offset: Vec2; zoom: number; targetZoom: number }): void {
     this._offset = { ...data.offset };
     this._zoom = data.zoom;
     this._targetZoom = data.targetZoom ?? data.zoom;

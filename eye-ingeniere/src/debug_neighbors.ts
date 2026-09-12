@@ -1,4 +1,4 @@
-
+//+++ hex-eyes-engine/src/debug_neighbors.ts
 import { HexCoords } from './grid/HexCoords';
 
 const coords = new HexCoords({ hexSize: 50 });

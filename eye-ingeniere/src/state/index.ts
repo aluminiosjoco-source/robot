@@ -1,4 +1,4 @@
-
+//--- hex-eyes-engine/src/state/index.ts
 /**
  * State module — Export unificado de gestión de estado
  *

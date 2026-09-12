@@ -1,4 +1,5 @@
-//+++ hex-eyes-engine/src/render/layers/LineLayer.ts
+//--- hex-eyes-engine/src/render/layers/LineLayer.ts
+
 /**
  * LineLayer — Capa de renderizado de líneas de conexión
  *

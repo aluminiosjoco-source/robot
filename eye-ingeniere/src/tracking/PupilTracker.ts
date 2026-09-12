@@ -1,7 +1,4 @@
---- hex-eyes-engine/src/tracking/PupilTracker.ts (原始)
-
-
-+++ hex-eyes-engine/src/tracking/PupilTracker.ts (修改后)
+//--- hex-eyes-engine/src/tracking/PupilTracker.ts
 /**
  * PupilTracker — Seguimiento de pupila con interpolación y suavizado temporal
  *

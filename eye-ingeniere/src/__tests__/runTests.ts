@@ -1,7 +1,5 @@
---- hex-eyes-engine/src/__tests__/runTests.ts (原始)
+//--- hex-eyes-engine/src/__tests__/runTests.ts (原始)
 
-
-+++ hex-eyes-engine/src/__tests__/runTests.ts (修改后)
 /**
  * Test suite — Verificación de criterios de aceptación
  *
@@ -266,4 +264,3 @@ if (failed > 0) {
   console.log('\n✅ TODOS LOS TESTS PASARON');
   process.exit(0);
 }
-

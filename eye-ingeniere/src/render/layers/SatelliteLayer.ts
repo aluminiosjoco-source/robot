@@ -1,4 +1,4 @@
-//+++ hex-eyes-engine/src/render/layers/SatelliteLayer.ts
+//--- hex-eyes-engine/src/render/layers/SatelliteLayer.ts 
 /**
  * SatelliteLayer — Capa de renderizado de satélites (textos orbitales)
  *

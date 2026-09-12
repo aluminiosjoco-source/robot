@@ -1,5 +1,4 @@
-
-//+++ hex-eyes-engine/src/state/UIState.ts 
+//--- hex-eyes-engine/src/state/UIState.ts
 /**
  * UIState — Estado encapsulado de la UI
  *
@@ -143,7 +142,7 @@ export class UIState {
   /**
    * Restaura estado desde JSON
    */
-  fromJSON( {
+  fromJSON(data: {
     selectedCell: OffsetCoord | null;
     hoveredCell: OffsetCoord | null;
     isPanelOpen: boolean;

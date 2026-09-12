@@ -1,4 +1,4 @@
-//+++ hex-eyes-engine/src/render/layers/GridLayer.ts 
+//--- hex-eyes-engine/src/render/layers/GridLayer.ts 
 /**
  * GridLayer — Capa de renderizado del grid hexagonal
  *

@@ -1,4 +1,4 @@
-//+++ hex-eyes-engine/src/render/layers/types.ts 
+//--- hex-eyes-engine/src/render/layers/types.ts
 /**
  * Tipos y contratos para capas de renderizado
  *

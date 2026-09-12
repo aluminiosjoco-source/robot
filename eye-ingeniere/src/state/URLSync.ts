@@ -1,4 +1,4 @@
-// hex-eyes-engine/src/state/URLSync.ts (修改后)
+//--- hex-eyes-engine/src/state/URLSync.ts 
 /**
  * URLSync — Sincronización de estado con URL (query params)
  *

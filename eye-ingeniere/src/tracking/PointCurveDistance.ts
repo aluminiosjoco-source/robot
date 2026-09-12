@@ -1,7 +1,4 @@
---- hex-eyes-engine/src/tracking/PointCurveDistance.ts (原始)
-
-
-+++ hex-eyes-engine/src/tracking/PointCurveDistance.ts (修改后)
+//--- hex-eyes-engine/src/tracking/PointCurveDistance.ts
 /**
  * PointCurveDistance — Cálculo de punto más cercano en curva Bézier
  *
