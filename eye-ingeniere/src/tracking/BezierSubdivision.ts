@@ -1,5 +1,4 @@
 //--- hex-eyes-engine/src/tracking/BezierSubdivision.ts
-/**
  * BezierSubdivision — Álgebra de curvas de Bézier cúbicas
  *
  * [FASE] 2 — Tracking (Bézier)

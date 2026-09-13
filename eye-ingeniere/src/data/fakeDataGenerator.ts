@@ -1,5 +1,4 @@
-//--- hex-eyes-engine/src/data/fakeDataGenerator.ts
-
+//--- hex-eyes-engine/src/data/fakeDataGenerator.ts 
 /**
  * Generador de datos de prueba: 500 ojos en distribución espiral hexagonal
  * Basado en la lógica original de eyes_grid.min.js

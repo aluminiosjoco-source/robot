@@ -1,4 +1,4 @@
-//--- hex-eyes-engine/src/interaction/PanController.ts
+//--- hex-eyes-engine/src/interaction/PanController.ts 
 /**
  * PanController — Controlador de paneo con eventos de puntero
  *

@@ -1,9 +1,9 @@
 
 {
   "compilerOptions": {
-    "target": "ES2023",
+    "target": "ES2022",
     "module": "ESNext",
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "moduleResolution": "bundler",
     "strict": true,
     "esModuleInterop": true,
@@ -17,17 +17,18 @@
     "sourceMap": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "baseUrl": "./src",
+    //"baseUrl": "./",
     "paths": {
-      "@core/*": ["core/*"],
-      "@grid/*": ["grid/*"],
-      "@tracking/*": ["tracking/*"],
-      "@interaction/*": ["interaction/*"],
-      "@render/*": ["render/*"],
-      "@state/*": ["state/*"],
-      "@data/*": ["data/*"]
+      "@core/*": ["./src/core/*"],
+      "@grid/*": ["./src/grid/*"],
+      "@tracking/*": ["./src/tracking/*"],
+      "@interaction/*": ["./src/interaction/*"],
+      "@render/*": ["./src/render/*"],
+      "@state/*": ["./src/state/*"],
+      "@data/*": ["./src/data/*"]
     }
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  //"exclude": ["node_modules", "dist"],
+  "exclude": ["node_modules", "dist", "src/__tests__", "src/debug_neighbors.ts"]
 }

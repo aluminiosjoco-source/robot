@@ -1,5 +1,4 @@
 //--- hex-eyes-engine/src/render/SpriteCache.ts 
-/**
  * SpriteCache — Cache de sprites en offscreen canvas para renderizado eficiente
  *
  * [FASE] 4 — Render (ya entregado, integrado aquí)

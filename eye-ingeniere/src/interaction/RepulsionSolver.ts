@@ -1,4 +1,4 @@
-//--- hex-eyes-engine/src/interaction/RepulsionSolver.ts
+--- hex-eyes-engine/src/interaction/RepulsionSolver.ts 
 /**
  * RepulsionSolver — Solver de repulsión n-body simplificado
  *

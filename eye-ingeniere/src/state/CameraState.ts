@@ -1,4 +1,4 @@
-//--- hex-eyes-engine/src/state/CameraState.ts 
+//--- hex-eyes-engine/src/state/CameraState.ts
 /**
  * CameraState — Estado encapsulado de la cámara
  *

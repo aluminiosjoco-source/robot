@@ -1,4 +1,4 @@
-//--- hex-eyes-engine/src/main.ts
+--- hex-eyes-engine/src/main.ts
 /**
  * main.ts — Punto de entrada y orquestación del motor
  *
@@ -9,10 +9,13 @@
  *   - dispose() limpia todos los listeners y rAF
  */
 
-import { DEFAULT_CONFIG, type EngineConfig, type Vec2 } from './core/types';
+import { DEFAULT_CONFIG, type EngineConfig, type Vec2, type FrameData } from './core/types';
 import { HexCoords } from './grid/HexCoords';
 import { SpiralLayout } from './grid/SpiralLayout';
 import { LensDistortion } from './grid/LensDistortion';
+import { RenderPipeline } from './render/RenderPipeline';
+import { SpriteCache } from './render/SpriteCache';
+import { generateTestEyesGrid } from './data/fakeDataGenerator';
 
 // Configuración de alias (se resuelve con vite.config.ts)
 // @core -> ./core
@@ -44,14 +47,25 @@ export function bootstrap(canvasIds: { grid: string; sat: string; line: string }
     throw new Error(`[HexEyes] Canvas no encontrado: ${JSON.stringify(canvasIds)}`);
   }
 
-  // Configura tamaños de canvas
+  // Configura tamaños de canvas con DPR (Device Pixel Ratio)
   const resizeCanvases = () => {
+    const dpr = window.devicePixelRatio || 1;
     const width = window.innerWidth;
     const height = window.innerHeight;
 
     for (const canvas of [gridCanvas, satCanvas, lineCanvas]) {
-      canvas.width = width;
-      canvas.height = height;
+      // Resolución física (escalada por DPR)
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      // Dimensión CSS (tamaño lógico)
+      canvas.style.width = width + 'px';
+      canvas.style.height = height + 'px';
+
+      // Escala el contexto para coordenadas lógicas
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.scale(dpr, dpr);
+      }
     }
   };
 
@@ -68,12 +82,43 @@ export function bootstrap(canvasIds: { grid: string; sat: string; line: string }
     maxScale: DEFAULT_CONFIG.lensMaxScale
   });
 
+  // Genera datos de prueba: 500 ojos
+  console.log('[HexEyes] Generando 500 ojos de prueba...');
+  const testData = generateTestEyesGrid(500);
+  console.log('[HexEyes] Grid generado:', testData.placements.length, 'celdas');
+
   // Estado de cámara
   const camera: CameraState = {
     offset: { x: 0, y: 0 },
     zoom: DEFAULT_CONFIG.cameraZoomDefault,
     targetZoom: DEFAULT_CONFIG.cameraZoomDefault
   };
+
+  // Crea SpriteCache para las 3 capas
+  const spriteCache = new SpriteCache({
+    maxSprites: 1000,
+    useOffscreen: true
+  });
+
+  // Crea RenderPipeline
+  const gridCtx = gridCanvas.getContext('2d');
+  const satCtx = satCanvas.getContext('2d');
+  const lineCtx = lineCanvas.getContext('2d');
+
+  if (!gridCtx || !satCtx || !lineCtx) {
+    throw new Error('[HexEyes] No se pudo obtener contexto 2D de los canvases');
+  }
+
+  const renderPipeline = new RenderPipeline({
+    gridCtx,
+    satCtx,
+    lineCtx,
+    spriteCache,
+    config: DEFAULT_CONFIG
+  });
+
+  // Cursor tracking
+  let cursorPos: Vec2 | null = null;
 
   // Animation clock
   let lastTime = performance.now();
@@ -95,8 +140,15 @@ export function bootstrap(canvasIds: { grid: string; sat: string; line: string }
   const renderLoop = (nowMs: number) => {
     const deltaTime = clock.tick(nowMs);
 
-    // Aquí iría la lógica de actualización y render
-    // Por ahora solo mantiene el loop activo
+    // Actualiza estado del cursor (para layers que lo necesiten)
+    const frameData: FrameData = {
+      cells: testData.placements,
+      eyeStates: testData.eyeStates,
+      cursorScreenPos: cursorPos
+    };
+
+    // Renderiza todas las capas
+    renderPipeline.renderFrame(frameData);
 
     animationFrameId = requestAnimationFrame(renderLoop);
   };
@@ -110,11 +162,12 @@ export function bootstrap(canvasIds: { grid: string; sat: string; line: string }
 
     cancelAnimationFrame(animationFrameId);
     window.removeEventListener('resize', resizeCanvases);
+    spriteCache.clear();
 
     // Limpia listeners adicionales aquí cuando se implementen
   };
 
-  console.log('[HexEyes] Bootstrap completado');
+  console.log('[HexEyes] Bootstrap completado - 500 ojos renderizados');
 
   return {
     clock,

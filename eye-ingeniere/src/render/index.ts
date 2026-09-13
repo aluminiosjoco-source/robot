@@ -1,4 +1,4 @@
-//--- hex-eyes-engine/src/render/index.ts
+//--- hex-eyes-engine/src/render/index.ts 
 /**
  * Render module — Export unificado de renderizado
  *

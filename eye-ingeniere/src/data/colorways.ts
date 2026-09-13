@@ -1,4 +1,4 @@
-//--- hex-eyes-engine/src/data/colorways.ts
+--- hex-eyes-engine/src/data/colorways.ts 
 /**
  * Definición de paletas de colores (Colorways)
  * Basado en el esquema original de eyes_grid.min.js

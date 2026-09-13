@@ -1,4 +1,4 @@
-//--- hex-eyes-engine/src/grid/HexCoords.ts
+//--- hex-eyes-engine/src/grid/HexCoords.ts 
 /**
  * HexCoords — Coordenadas hexagonales offset (odd-row, flat-top)
  *

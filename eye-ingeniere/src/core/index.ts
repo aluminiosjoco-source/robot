@@ -1,4 +1,4 @@
-//+++ hex-eyes-engine/src/core/index.ts
+//--- hex-eyes-engine/src/core/index.ts
 /**
  * Export barrel — Core module
  *

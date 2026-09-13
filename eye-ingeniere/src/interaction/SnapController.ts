@@ -1,4 +1,4 @@
-//--- hex-eyes-engine/src/interaction/SnapController.ts 
+//--- hex-eyes-engine/src/interaction/SnapController.ts
 /**
  * SnapController — Controlador de snap con easing cúbico
  *
