@@ -1,4 +1,4 @@
-
+//--- hex-eyes-engine/tsconfig.json 
 {
   "compilerOptions": {
     "target": "ES2022",
@@ -17,7 +17,7 @@
     "sourceMap": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    //"baseUrl": "./",
+    //"baseUrl": "./src",
     "paths": {
       "@core/*": ["./src/core/*"],
       "@grid/*": ["./src/grid/*"],
@@ -29,6 +29,5 @@
     }
   },
   "include": ["src/**/*"],
-  //"exclude": ["node_modules", "dist"],
-  "exclude": ["node_modules", "dist", "src/__tests__", "src/debug_neighbors.ts"]
+  "exclude": ["node_modules", "dist"]
 }

@@ -1,4 +1,4 @@
---- hex-eyes-engine/src/main.ts
+//--- hex-eyes-engine/src/main.ts 
 /**
  * main.ts — Punto de entrada y orquestación del motor
  *

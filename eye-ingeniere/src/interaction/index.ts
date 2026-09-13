@@ -1,4 +1,4 @@
---- hex-eyes-engine/src/interaction/index.ts 
+//--- hex-eyes-engine/src/interaction/index.ts 
 /**
  * Interaction module — Export unificado de interacción
  *
