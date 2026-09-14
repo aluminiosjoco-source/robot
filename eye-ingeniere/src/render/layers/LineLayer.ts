@@ -1,15 +1,17 @@
-import type { IRenderLayer, FrameData, OffsetCoord, Vec2 } from '../../core/types';
+
+//+++ eye-ingeniere/src/render/layers/LineLayer.ts 
+import type { IRenderLayer, FrameData, OffsetCoord, Vec2 } from '../../render/layers/types';
 import { DEFAULT_CONFIG } from '../../core/types';
 
 export class LineLayer implements IRenderLayer {
     private getNeighbors(coord: OffsetCoord): OffsetCoord[] {
         const isEvenRow = coord.row % 2 === 0;
-        
+
         const evenRowDirs = [
             { col: 1, row: 0 }, { col: 0, row: -1 }, { col: -1, row: -1 },
             { col: -1, row: 0 }, { col: 0, row: 1 }, { col: 1, row: 1 }
         ];
-        
+
         const oddRowDirs = [
             { col: 1, row: 0 }, { col: 1, row: -1 }, { col: 0, row: -1 },
             { col: -1, row: 0 }, { col: 0, row: 1 }, { col: 1, row: 1 }
@@ -41,30 +43,30 @@ export class LineLayer implements IRenderLayer {
 
         for (const cell of frameData.cells) {
             const neighbors = this.getNeighbors({ col: cell.col, row: cell.row });
-            
+
             for (const neighbor of neighbors) {
                 const neighborKey = `${neighbor.col},${neighbor.row}`;
                 const neighborPos = cellMap.get(neighborKey);
-                
+
                 if (!neighborPos) continue;
 
                 const lineKey = [cell.col, cell.row, neighbor.col, neighbor.row]
                     .sort()
                     .join('-');
-                
+
                 if (drawnLines.has(lineKey)) continue;
                 drawnLines.add(lineKey);
 
                 const midX = (cell.center.x + neighborPos.x) / 2;
                 const midY = (cell.center.y + neighborPos.y) / 2;
-                
+
                 const dx = neighborPos.x - cell.center.x;
                 const dy = neighborPos.y - cell.center.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
-                
+
                 const perpX = -dy / dist * curveMargin;
                 const perpY = dx / dist * curveMargin;
-                
+
                 const cpX = midX + perpX * curveTightness;
                 const cpY = midY + perpY * curveTightness;
 

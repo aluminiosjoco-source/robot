@@ -1,4 +1,7 @@
-import { DEFAULT_CONFIG, CameraState, UIState } from './core/types';
+
+//+++ eye-ingeniere/src/main.ts 
+import { DEFAULT_CONFIG } from './core/types';
+import { CameraState, UIState } from './state';
 import { generateEyeData } from './data/DataGenerator';
 import { GridLayer } from './render/layers/GridLayer';
 import { LineLayer } from './render/layers/LineLayer';
@@ -39,18 +42,18 @@ class HexEyesApp {
 
     constructor() {
         console.log('[HexEyes] Bootstrap iniciado');
-        
+
         try {
             const gridCanvas = document.getElementById('grid-canvas') as HTMLCanvasElement;
             const lineCanvas = document.getElementById('line-canvas') as HTMLCanvasElement;
             const satCanvas = document.getElementById('sat-canvas') as HTMLCanvasElement;
-            
+
             if (!gridCanvas || !lineCanvas || !satCanvas) {
                 throw new Error('Canvas elements not found');
             }
 
             this.setupCanvas(gridCanvas);
-            
+
             this.state = {
                 canvas: gridCanvas,
                 ctx: gridCanvas.getContext('2d')!,
@@ -59,10 +62,10 @@ class HexEyesApp {
                 gridLayer: new GridLayer(),
                 lineLayer: new LineLayer(),
                 satLayer: new SatelliteLayer(),
-                panController: new PanController(gridCanvas, this.handlePan.bind(this)),
+                panController: new PanController(),
                 inertiaModel: null,
                 snapController: new SnapController({
-                    coords: { 
+                    coords: {
                         offsetToPixel: () => ({ x: 0, y: 0 }),
                         pixelToOffset: () => ({ col: 0, row: 0 })
                     },
@@ -81,7 +84,7 @@ class HexEyesApp {
             this.initializeData();
             this.setupEventListeners();
             this.startAnimationLoop();
-            
+
             console.log('[HexEyes] Inicialización completada exitosamente');
         } catch (error) {
             console.error('[HexEyes] Error en inicialización:', error);
@@ -95,7 +98,7 @@ class HexEyesApp {
         canvas.height = window.innerHeight * dpr;
         canvas.style.width = `${window.innerWidth}px`;
         canvas.style.height = `${window.innerHeight}px`;
-        
+
         const ctx = canvas.getContext('2d');
         if (ctx) {
             ctx.scale(dpr, dpr);
@@ -103,11 +106,11 @@ class HexEyesApp {
     }
 
     private initializeData(): void {
-        const { placements, eyeStates } = generateEyeData(500, 42);
-        
+        const { placements, eyeStates } = generateEyeData(91, 42);
+
         this.state.frameData.cells = placements;
         this.state.frameData.eyeStates = eyeStates;
-        
+
         placements.forEach(placement => {
             const key = `${placement.col},${placement.row}`;
             const initialState = eyeStates.get(key);
@@ -138,16 +141,16 @@ class HexEyesApp {
             const rect = canvas.getBoundingClientRect();
             const point = { x: e.clientX - rect.left, y: e.clientY - rect.top };
             this.state.mousePos = point;
-            
+
             const camOffset = this.state.camera.offset;
             this.state.panController.onPointerMove(point, camOffset);
-            
+
             this.updatePupilTracking(point);
         });
 
         canvas.addEventListener('pointerup', () => {
             this.state.panController.onPointerUp();
-            const velocity = this.state.panController.getLaunchVelocity();
+            const velocity = this.state.panController.getVelocity();
             if (velocity && (Math.abs(velocity.x) > 0.1 || Math.abs(velocity.y) > 0.1)) {
                 this.state.inertiaModel = new InertiaModel({ frictionPerSecond: 4.0 });
                 this.state.inertiaModel.setInitialVelocity(velocity);
@@ -158,11 +161,11 @@ class HexEyesApp {
             e.preventDefault();
             const rect = canvas.getBoundingClientRect();
             const mousePoint = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-            
+
             const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
             const newZoom = this.state.camera.zoom * zoomFactor;
             this.state.camera.targetZoom = Math.max(0.1, Math.min(5.0, newZoom));
-            
+
             this.state.camera.offset = {
                 x: mousePoint.x - (mousePoint.x - this.state.camera.offset.x) * (newZoom / this.state.camera.zoom),
                 y: mousePoint.y - (mousePoint.y - this.state.camera.offset.y) * (newZoom / this.state.camera.zoom)
@@ -177,20 +180,20 @@ class HexEyesApp {
     private updatePupilTracking(mousePos: Vec2): void {
         const camOffset = this.state.camera.offset;
         const camZoom = this.state.camera.zoom;
-        
+
         const worldMouseX = (mousePos.x - camOffset.x) / camZoom;
         const worldMouseY = (mousePos.y - camOffset.y) / camZoom;
         const worldMouse = { x: worldMouseX, y: worldMouseY };
 
-        this.state.frameData.cells.forEach(cell => {
+        this.state.frameData.cells.forEach((cell: any) => {
             const key = `${cell.col},${cell.row}`;
             const tracker = this.state.pupilTrackers.get(key);
             const eyeState = this.state.frameData.eyeStates.get(key);
-            
+
             if (tracker && eyeState) {
                 tracker.update(worldMouse, 16);
                 const pupilPos = tracker.getCurrentPosition();
-                
+
                 const dx = pupilPos.x - cell.center.x;
                 const dy = pupilPos.y - cell.center.y;
                 eyeState.pupilAngleRad = Math.atan2(dy, dx);
@@ -230,7 +233,7 @@ class HexEyesApp {
                 x: this.state.camera.offset.x + displacement.x,
                 y: this.state.camera.offset.y + displacement.y
             };
-            
+
             if (this.state.inertiaModel.isSettled) {
                 this.state.inertiaModel = null;
             }
@@ -251,9 +254,9 @@ class HexEyesApp {
 
     private render(): void {
         const { ctx, canvas, frameData, camera } = this.state;
-        
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
+
         frameData.cameraOffset = camera.offset;
         frameData.cameraZoom = camera.zoom;
 
@@ -263,7 +266,7 @@ class HexEyesApp {
 
         this.state.gridLayer.draw(ctx, frameData);
         this.state.lineLayer.draw(ctx, frameData);
-        
+
         ctx.restore();
 
         this.state.satLayer.draw(ctx, frameData);
@@ -271,12 +274,12 @@ class HexEyesApp {
 
     private updateFPS(currentTime: number): void {
         this.state.frameCount++;
-        
+
         if (currentTime - this.state.lastFpsUpdate >= 1000) {
             this.state.fps = this.state.frameCount;
             this.state.frameCount = 0;
             this.state.lastFpsUpdate = currentTime;
-            
+
             const debugInfo = document.getElementById('debug-info');
             if (debugInfo) {
                 debugInfo.textContent = `FPS: ${this.state.fps} | Cells: ${this.state.frameData.cells.length}`;
@@ -288,7 +291,7 @@ class HexEyesApp {
         if (this.state.animationId !== null) {
             cancelAnimationFrame(this.state.animationId);
         }
-        this.state.panController.dispose();
+        this.state.panController.reset();
         console.log('[HexEyes] Aplicación disposed');
     }
 }

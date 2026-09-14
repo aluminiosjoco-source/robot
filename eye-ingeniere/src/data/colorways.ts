@@ -1,10 +1,14 @@
-//--- hex-eyes-engine/src/data/colorways.ts 
+
+//+++ eye-ingeniere/src/data/colorways.ts 
+//--- hex-eyes-engine/src/data/colorways.ts
 /**
  * Definición de paletas de colores (Colorways)
  * Basado en el esquema original de eyes_grid.min.js
  */
 
 import type { ColorwayDef } from '../core/types';
+
+/**\n * Lista unificada de colorways para generación procedural\n */\nexport const COLORWAYS: ColorwayDef[] = [\n  { id: 'red', name: 'Red', hex: '#FF3B30', rarityWeight: 1.0 },\n  { id: 'blue', name: 'Blue', hex: '#007AFF', rarityWeight: 1.0 },\n  { id: 'yellow', name: 'Yellow', hex: '#FFCC00', rarityWeight: 0.9 },\n  { id: 'green', name: 'Green', hex: '#34C759', rarityWeight: 1.0 },\n  { id: 'purple', name: 'Purple', hex: '#AF52DE', rarityWeight: 0.8 },\n  { id: 'orange', name: 'Orange', hex: '#FF9500', rarityWeight: 0.95 },\n  { id: 'cyan', name: 'Cyan', hex: '#5AC8FA', rarityWeight: 0.85 },\n];
 
 /**
  * Colores primarios vibrantes extraídos del original

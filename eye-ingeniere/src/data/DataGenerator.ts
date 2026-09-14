@@ -1,7 +1,17 @@
+
+//+++ eye-ingeniere/src/data/DataGenerator.ts 
 import type { OffsetCoord, EyeVisualState, CellPlacement, Vec2, ShapeId, ColorwayDef } from '../core/types';
 import { DEFAULT_CONFIG } from '../core/types';
 import { AVAILABLE_SHAPES } from './shapes';
 import { COLORWAYS } from './colorways';
+
+/**
+ * DataGenerator — Genera UN solo ojo con componentes distribuidos en espiral hexagonal
+ *
+ * [CORRECCIÓN CRÍTICA] El original NO genera 500 ojos independientes
+ * Genera UN ojo compuesto por múltiples celdas hexagonales en espiral
+ * Cada celda contiene una fracción de la forma Bézier completa
+ */
 
 export interface GeneratedEyeData {
     placements: CellPlacement[];
@@ -37,7 +47,7 @@ function offsetToPixel(coord: OffsetCoord, hexSize: number): Vec2 {
 
 function generateSpiralCoords(maxCount: number): OffsetCoord[] {
     const coords: OffsetCoord[] = [];
-    
+
     coords.push({ col: 0, row: 0 });
     if (maxCount <= 1) return coords;
 
@@ -66,31 +76,28 @@ function generateSpiralCoords(maxCount: number): OffsetCoord[] {
     return coords.slice(0, maxCount);
 }
 
-function selectColorway(rng: SeededRandom, distanceFromCenter: number): ColorwayDef {
-    const rarityThreshold = Math.max(0.3, 1 - distanceFromCenter * 0.02);
-    
-    const weightedColorways: ColorwayDef[] = [];
-    COLORWAYS.forEach(cw => {
-        const weight = cw.rarityWeight >= rarityThreshold ? cw.rarityWeight * 2 : cw.rarityWeight * 0.5;
-        const copies = Math.floor(weight * 10);
-        for (let i = 0; i < copies; i++) {
-            weightedColorways.push(cw);
-        }
-    });
-
-    return weightedColorways.length > 0 
-        ? rng.pick(weightedColorways) 
-        : rng.pick(COLORWAYS);
-}
-
-export function generateEyeData(count: number = 500, seed: number = 12345): GeneratedEyeData {
-    if (count <= 0 || count > 10000) {
-        throw new Error(`Invalid eye count: ${count}. Must be between 1 and 10000.`);
+/**
+ * Genera UN solo ojo distribuido en espiral hexagonal
+ *
+ * [ALGORITMO]
+ * 1. Genera N celdas en espiral desde el centro
+ * 2. Cada celda representa un segmento de la forma del ojo
+ * 3. Todas las celdas comparten el mismo colorway base
+ * 4. Las pupilas se sincronizan hacia el cursor
+ */
+export function generateSingleEyeData(spiralCount: number = 91, seed: number = 42): GeneratedEyeData {
+    if (spiralCount <= 0 || spiralCount > 5000) {
+        throw new Error(`Invalid spiral count: ${spiralCount}. Must be between 1 and 5000.`);
     }
 
     const rng = new SeededRandom(seed);
-    const coords = generateSpiralCoords(count);
-    const hexSize = DEFAULT_CONFIG.hexSizeBase / 2;
+    const coords = generateSpiralCoords(spiralCount);
+    const hexSize = DEFAULT_CONFIG.hexSizeBase; // Usar tamaño base completo para un solo ojo
+
+    // Colorway base único para todo el ojo
+    const baseColorway = COLORWAYS[rng.nextInt(COLORWAYS.length)];
+    // Forma base única para todo el ojo
+    const baseShapeId = AVAILABLE_SHAPES[rng.nextInt(AVAILABLE_SHAPES.length)];
 
     const placements: CellPlacement[] = [];
     const eyeStates = new Map<string, EyeVisualState>();
@@ -102,15 +109,18 @@ export function generateEyeData(count: number = 500, seed: number = 12345): Gene
     coords.forEach((coord, index) => {
         const center = offsetToPixel(coord, hexSize);
         const distanceFromCenter = Math.sqrt(coord.col * coord.col + coord.row * coord.row);
-        
+
+        // Escala decreciente desde el centro hacia los bordes
+        // Las celdas cercanas al centro son más grandes
         const scale01 = Math.max(
-            spiralMaxRadius,
-            Math.min(1.0, spiralMinRadius - distanceFromCenter * spiralGrowthRate)
+            0.15,
+            Math.min(1.0, 1.0 - distanceFromCenter * spiralGrowthRate * 50)
         );
 
-        const maxViewDistance = 30;
-        const alpha01 = distanceFromCenter > maxViewDistance 
-            ? Math.max(0.2, 1 - (distanceFromCenter - maxViewDistance) * 0.05)
+        // Alpha basado en distancia para fade out suave en los bordes
+        const maxVisibleRing = Math.sqrt(spiralCount) * 0.8;
+        const alpha01 = distanceFromCenter > maxVisibleRing
+            ? Math.max(0.1, 1 - (distanceFromCenter - maxVisibleRing) * 0.15)
             : 1.0;
 
         const placement: CellPlacement = {
@@ -123,15 +133,19 @@ export function generateEyeData(count: number = 500, seed: number = 12345): Gene
 
         placements.push(placement);
 
-        const shapeId = rng.pick(AVAILABLE_SHAPES) as ShapeId;
-        const colorway = selectColorway(rng, distanceFromCenter);
+        // Cada celda tiene variación sutil pero comparte identidad visual
+        const hueVariation = (rng.next() - 0.5) * 0.1;
+        const variantColorway: ColorwayDef = {
+            ...baseColorway,
+            hex: adjustHue(baseColorway.hex, hueVariation),
+        };
 
         const eyeState: EyeVisualState = {
-            shapeId,
-            colorway,
-            animFrame: rng.nextInt(4),
-            pupilAngleRad: rng.next() * Math.PI * 2,
-            pupilOffset01: 0.3 + rng.next() * 0.4,
+            shapeId: baseShapeId,
+            colorway: variantColorway,
+            animFrame: 0,
+            pupilAngleRad: 0,
+            pupilOffset01: 0.5,
         };
 
         const key = `${coord.col},${coord.row}`;
@@ -141,26 +155,19 @@ export function generateEyeData(count: number = 500, seed: number = 12345): Gene
     return { placements, eyeStates };
 }
 
-export function getSingleEyeData(col: number, row: number): { placement: CellPlacement; eyeState: EyeVisualState } {
-    const hexSize = DEFAULT_CONFIG.hexSizeBase / 2;
-    const center = offsetToPixel({ col, row }, hexSize);
+function adjustHue(hex: string, factor: number): string {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
 
-    const rng = new SeededRandom(col * 1000 + row);
-    
-    return {
-        placement: {
-            col,
-            row,
-            center,
-            scale01: 1.0,
-            alpha01: 1.0,
-        },
-        eyeState: {
-            shapeId: rng.pick(AVAILABLE_SHAPES) as ShapeId,
-            colorway: rng.pick(COLORWAYS),
-            animFrame: 0,
-            pupilAngleRad: 0,
-            pupilOffset01: 0.5,
-        },
+    const adjust = (val: number) => {
+        const adjusted = Math.round(val * (1 + factor));
+        return Math.max(0, Math.min(255, adjusted));
     };
+
+    return `#${adjust(r).toString(16).padStart(2, '0')}${adjust(g).toString(16).padStart(2, '0')}${adjust(b).toString(16).padStart(2, '0')}`;
+}
+
+export function generateEyeData(count: number = 91, seed: number = 42): GeneratedEyeData {
+    return generateSingleEyeData(count, seed);
 }
