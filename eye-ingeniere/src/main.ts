@@ -1,210 +1,306 @@
-//--- hex-eyes-engine/src/main.ts 
-/**
- * main.ts — Punto de entrada y orquestación del motor
- *
- * [FASE] 5 — Orquestación / Estado
- * [CRITERIO DE ACEPTACIÓN]
- *   - 60fps sostenidos 60s sin memory leak
- *   - Heap estable en DevTools
- *   - dispose() limpia todos los listeners y rAF
- */
+import { DEFAULT_CONFIG, CameraState, UIState } from './core/types';
+import { generateEyeData } from './data/DataGenerator';
+import { GridLayer } from './render/layers/GridLayer';
+import { LineLayer } from './render/layers/LineLayer';
+import { SatelliteLayer } from './render/layers/SatelliteLayer';
+import { PupilTracker } from './tracking/PupilTracker';
+import { PanController } from './interaction/PanController';
+import { InertiaModel } from './interaction/InertiaModel';
+import { SnapController } from './interaction/SnapController';
 
-import { DEFAULT_CONFIG, type EngineConfig, type Vec2, type FrameData } from './core/types';
-import { HexCoords } from './grid/HexCoords';
-import { SpiralLayout } from './grid/SpiralLayout';
-import { LensDistortion } from './grid/LensDistortion';
-import { RenderPipeline } from './render/RenderPipeline';
-import { SpriteCache } from './render/SpriteCache';
-import { generateTestEyesGrid } from './data/fakeDataGenerator';
+interface AppState {
+    canvas: HTMLCanvasElement;
+    ctx: CanvasRenderingContext2D;
+    camera: CameraState;
+    ui: UIState;
+    gridLayer: GridLayer;
+    lineLayer: LineLayer;
+    satLayer: SatelliteLayer;
+    panController: PanController;
+    inertiaModel: InertiaModel | null;
+    snapController: SnapController;
+    pupilTrackers: Map<string, PupilTracker>;
+    frameData: any;
+    mousePos: Vec2 | null;
+    lastTime: number;
+    animationId: number | null;
+    fps: number;
+    frameCount: number;
+    lastFpsUpdate: number;
+}
 
-// Configuración de alias (se resuelve con vite.config.ts)
-// @core -> ./core
-// @grid -> ./grid
-// @tracking -> ./tracking
-// @interaction -> ./interaction
-// @render -> ./render
-// @state -> ./state
+interface Vec2 {
+    x: number;
+    y: number;
+}
 
-/**
- * Inicializa el motor hexagonal
- *
- * @param canvasIds - IDs de los canvases para grid, satélites y líneas
- * @returns Objeto con clock, camera y dispose()
- */
-export function bootstrap(canvasIds: { grid: string; sat: string; line: string }): {
-  clock: IAnimationClock;
-  camera: CameraState;
-  dispose: () => void;
-} {
-  console.log('[HexEyes] Bootstrap iniciado', canvasIds);
+class HexEyesApp {
+    private state: AppState;
 
-  // Obtiene elementos del DOM
-  const gridCanvas = document.getElementById(canvasIds.grid) as HTMLCanvasElement;
-  const satCanvas = document.getElementById(canvasIds.sat) as HTMLCanvasElement;
-  const lineCanvas = document.getElementById(canvasIds.line) as HTMLCanvasElement;
+    constructor() {
+        console.log('[HexEyes] Bootstrap iniciado');
+        
+        try {
+            const gridCanvas = document.getElementById('grid-canvas') as HTMLCanvasElement;
+            const lineCanvas = document.getElementById('line-canvas') as HTMLCanvasElement;
+            const satCanvas = document.getElementById('sat-canvas') as HTMLCanvasElement;
+            
+            if (!gridCanvas || !lineCanvas || !satCanvas) {
+                throw new Error('Canvas elements not found');
+            }
 
-  if (!gridCanvas || !satCanvas || !lineCanvas) {
-    throw new Error(`[HexEyes] Canvas no encontrado: ${JSON.stringify(canvasIds)}`);
-  }
+            this.setupCanvas(gridCanvas);
+            
+            this.state = {
+                canvas: gridCanvas,
+                ctx: gridCanvas.getContext('2d')!,
+                camera: new CameraState(),
+                ui: new UIState(),
+                gridLayer: new GridLayer(),
+                lineLayer: new LineLayer(),
+                satLayer: new SatelliteLayer(),
+                panController: new PanController(gridCanvas, this.handlePan.bind(this)),
+                inertiaModel: null,
+                snapController: new SnapController({
+                    coords: { 
+                        offsetToPixel: () => ({ x: 0, y: 0 }),
+                        pixelToOffset: () => ({ col: 0, row: 0 })
+                    },
+                    easingFn: (t: number) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2
+                }),
+                pupilTrackers: new Map(),
+                frameData: { cells: [], eyeStates: new Map(), cursorScreenPos: null, cameraOffset: { x: 0, y: 0 }, cameraZoom: 1 },
+                mousePos: null,
+                lastTime: performance.now(),
+                animationId: null,
+                fps: 60,
+                frameCount: 0,
+                lastFpsUpdate: performance.now()
+            };
 
-  // Configura tamaños de canvas con DPR (Device Pixel Ratio)
-  const resizeCanvases = () => {
-    const dpr = window.devicePixelRatio || 1;
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-
-    for (const canvas of [gridCanvas, satCanvas, lineCanvas]) {
-      // Resolución física (escalada por DPR)
-      canvas.width = Math.round(width * dpr);
-      canvas.height = Math.round(height * dpr);
-      // Dimensión CSS (tamaño lógico)
-      canvas.style.width = width + 'px';
-      canvas.style.height = height + 'px';
-
-      // Escala el contexto para coordenadas lógicas
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.scale(dpr, dpr);
-      }
+            this.initializeData();
+            this.setupEventListeners();
+            this.startAnimationLoop();
+            
+            console.log('[HexEyes] Inicialización completada exitosamente');
+        } catch (error) {
+            console.error('[HexEyes] Error en inicialización:', error);
+            throw error;
+        }
     }
-  };
 
-  resizeCanvases();
-  window.addEventListener('resize', resizeCanvases);
-
-  // Inicializa sistemas core
-  const hexSize = DEFAULT_CONFIG.hexSizeBase / 2;
-  const coords = new HexCoords({ hexSize });
-  const spiral = new SpiralLayout();
-  const lens = new LensDistortion({
-    strength01: DEFAULT_CONFIG.lensStrength,
-    falloffRadiusPx: DEFAULT_CONFIG.lensFalloff,
-    maxScale: DEFAULT_CONFIG.lensMaxScale
-  });
-
-  // Genera datos de prueba: 500 ojos
-  console.log('[HexEyes] Generando 500 ojos de prueba...');
-  const testData = generateTestEyesGrid(500);
-  console.log('[HexEyes] Grid generado:', testData.placements.length, 'celdas');
-
-  // Estado de cámara
-  const camera: CameraState = {
-    offset: { x: 0, y: 0 },
-    zoom: DEFAULT_CONFIG.cameraZoomDefault,
-    targetZoom: DEFAULT_CONFIG.cameraZoomDefault
-  };
-
-  // Crea SpriteCache para las 3 capas
-  const spriteCache = new SpriteCache({
-    maxSprites: 1000,
-    useOffscreen: true
-  });
-
-  // Crea RenderPipeline
-  const gridCtx = gridCanvas.getContext('2d');
-  const satCtx = satCanvas.getContext('2d');
-  const lineCtx = lineCanvas.getContext('2d');
-
-  if (!gridCtx || !satCtx || !lineCtx) {
-    throw new Error('[HexEyes] No se pudo obtener contexto 2D de los canvases');
-  }
-
-  const renderPipeline = new RenderPipeline({
-    gridCtx,
-    satCtx,
-    lineCtx,
-    spriteCache,
-    config: DEFAULT_CONFIG
-  });
-
-  // Cursor tracking
-  let cursorPos: Vec2 | null = null;
-
-  // Animation clock
-  let lastTime = performance.now();
-  let animationFrameId = -1;
-
-  const clock: IAnimationClock = {
-    tick(nowMs: number): number {
-      let deltaTime = nowMs - lastTime;
-
-      // Clamp para evitar "spiral of death" en background
-      deltaTime = Math.min(deltaTime, 100);
-
-      lastTime = nowMs;
-      return deltaTime;
+    private setupCanvas(canvas: HTMLCanvasElement): void {
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = window.innerWidth * dpr;
+        canvas.height = window.innerHeight * dpr;
+        canvas.style.width = `${window.innerWidth}px`;
+        canvas.style.height = `${window.innerHeight}px`;
+        
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+            ctx.scale(dpr, dpr);
+        }
     }
-  };
 
-  // Loop de render principal
-  const renderLoop = (nowMs: number) => {
-    const deltaTime = clock.tick(nowMs);
+    private initializeData(): void {
+        const { placements, eyeStates } = generateEyeData(500, 42);
+        
+        this.state.frameData.cells = placements;
+        this.state.frameData.eyeStates = eyeStates;
+        
+        placements.forEach(placement => {
+            const key = `${placement.col},${placement.row}`;
+            const initialState = eyeStates.get(key);
+            if (initialState) {
+                this.state.pupilTrackers.set(key, new PupilTracker({
+                    contour: [],
+                    smoothing01: DEFAULT_CONFIG.pupilSmoothing
+                }));
+            }
+        });
 
-    // Actualiza estado del cursor (para layers que lo necesiten)
-    const frameData: FrameData = {
-      cells: testData.placements,
-      eyeStates: testData.eyeStates,
-      cursorScreenPos: cursorPos
-    };
-
-    // Renderiza todas las capas
-    renderPipeline.renderFrame(frameData);
-
-    animationFrameId = requestAnimationFrame(renderLoop);
-  };
-
-  // Inicia el loop
-  animationFrameId = requestAnimationFrame(renderLoop);
-
-  // Función de cleanup
-  const dispose = () => {
-    console.log('[HexEyes] Dispose: limpiando recursos');
-
-    cancelAnimationFrame(animationFrameId);
-    window.removeEventListener('resize', resizeCanvases);
-    spriteCache.clear();
-
-    // Limpia listeners adicionales aquí cuando se implementen
-  };
-
-  console.log('[HexEyes] Bootstrap completado - 500 ojos renderizados');
-
-  return {
-    clock,
-    camera,
-    dispose
-  };
-}
-
-/**
- * Interfaces mínimas para el bootstrap
- */
-interface IAnimationClock {
-  tick(nowMs: number): number;
-}
-
-interface CameraState {
-  offset: Vec2;
-  zoom: number;
-  targetZoom: number;
-}
-
-// Inicialización automática si estamos en browser
-if (typeof window !== 'undefined') {
-  window.addEventListener('DOMContentLoaded', () => {
-    try {
-      const engine = bootstrap({
-        grid: 'grid-canvas',
-        sat: 'sat-canvas',
-        line: 'line-canvas'
-      });
-
-      // Expone para debugging en consola
-      (window as any).hexEyesEngine = engine;
-
-      console.log('[HexEyes] Motor inicializado. Disponible como window.hexEyesEngine');
-    } catch (error) {
-      console.error('[HexEyes] Error en inicialización:', error);
+        const debugInfo = document.getElementById('debug-info');
+        if (debugInfo) {
+            debugInfo.textContent = `FPS: 60 | Cells: ${placements.length}`;
+        }
     }
-  });
+
+    private setupEventListeners(): void {
+        const { canvas } = this.state;
+
+        canvas.addEventListener('pointerdown', (e: PointerEvent) => {
+            const rect = canvas.getBoundingClientRect();
+            const point = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+            this.state.panController.onPointerDown(point);
+        });
+
+        canvas.addEventListener('pointermove', (e: PointerEvent) => {
+            const rect = canvas.getBoundingClientRect();
+            const point = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+            this.state.mousePos = point;
+            
+            const camOffset = this.state.camera.offset;
+            this.state.panController.onPointerMove(point, camOffset);
+            
+            this.updatePupilTracking(point);
+        });
+
+        canvas.addEventListener('pointerup', () => {
+            this.state.panController.onPointerUp();
+            const velocity = this.state.panController.getLaunchVelocity();
+            if (velocity && (Math.abs(velocity.x) > 0.1 || Math.abs(velocity.y) > 0.1)) {
+                this.state.inertiaModel = new InertiaModel({ frictionPerSecond: 4.0 });
+                this.state.inertiaModel.setInitialVelocity(velocity);
+            }
+        });
+
+        canvas.addEventListener('wheel', (e: WheelEvent) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const mousePoint = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+            
+            const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+            const newZoom = this.state.camera.zoom * zoomFactor;
+            this.state.camera.targetZoom = Math.max(0.1, Math.min(5.0, newZoom));
+            
+            this.state.camera.offset = {
+                x: mousePoint.x - (mousePoint.x - this.state.camera.offset.x) * (newZoom / this.state.camera.zoom),
+                y: mousePoint.y - (mousePoint.y - this.state.camera.offset.y) * (newZoom / this.state.camera.zoom)
+            };
+        }, { passive: false });
+
+        window.addEventListener('resize', () => {
+            this.setupCanvas(canvas);
+        });
+    }
+
+    private updatePupilTracking(mousePos: Vec2): void {
+        const camOffset = this.state.camera.offset;
+        const camZoom = this.state.camera.zoom;
+        
+        const worldMouseX = (mousePos.x - camOffset.x) / camZoom;
+        const worldMouseY = (mousePos.y - camOffset.y) / camZoom;
+        const worldMouse = { x: worldMouseX, y: worldMouseY };
+
+        this.state.frameData.cells.forEach(cell => {
+            const key = `${cell.col},${cell.row}`;
+            const tracker = this.state.pupilTrackers.get(key);
+            const eyeState = this.state.frameData.eyeStates.get(key);
+            
+            if (tracker && eyeState) {
+                tracker.update(worldMouse, 16);
+                const pupilPos = tracker.getCurrentPosition();
+                
+                const dx = pupilPos.x - cell.center.x;
+                const dy = pupilPos.y - cell.center.y;
+                eyeState.pupilAngleRad = Math.atan2(dy, dx);
+                eyeState.pupilOffset01 = Math.min(1.0, Math.sqrt(dx * dx + dy * dy) / 20);
+            }
+        });
+
+        this.state.frameData.cursorScreenPos = mousePos;
+    }
+
+    private handlePan(deltaX: number, deltaY: number): void {
+        this.state.camera.offset = {
+            x: this.state.camera.offset.x + deltaX,
+            y: this.state.camera.offset.y + deltaY
+        };
+    }
+
+    private startAnimationLoop(): void {
+        const loop = (currentTime: number) => {
+            const deltaTime = Math.min(currentTime - this.state.lastTime, 100);
+            this.state.lastTime = currentTime;
+
+            this.update(deltaTime);
+            this.render();
+            this.updateFPS(currentTime);
+
+            this.state.animationId = requestAnimationFrame(loop);
+        };
+
+        this.state.animationId = requestAnimationFrame(loop);
+    }
+
+    private update(deltaTime: number): void {
+        if (this.state.inertiaModel && !this.state.inertiaModel.isSettled) {
+            const displacement = this.state.inertiaModel.step(deltaTime);
+            this.state.camera.offset = {
+                x: this.state.camera.offset.x + displacement.x,
+                y: this.state.camera.offset.y + displacement.y
+            };
+            
+            if (this.state.inertiaModel.isSettled) {
+                this.state.inertiaModel = null;
+            }
+        }
+
+        if (this.state.snapController.isActive) {
+            const snappedPos = this.state.snapController.update(deltaTime, 800);
+            if (snappedPos) {
+                this.state.camera.offset = snappedPos;
+            }
+        }
+
+        const zoomDiff = Math.abs(this.state.camera.zoom - this.state.camera.targetZoom);
+        if (zoomDiff > 0.001) {
+            this.state.camera.zoom += (this.state.camera.targetZoom - this.state.camera.zoom) * 0.1;
+        }
+    }
+
+    private render(): void {
+        const { ctx, canvas, frameData, camera } = this.state;
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        frameData.cameraOffset = camera.offset;
+        frameData.cameraZoom = camera.zoom;
+
+        ctx.save();
+        ctx.translate(camera.offset.x, camera.offset.y);
+        ctx.scale(camera.zoom, camera.zoom);
+
+        this.state.gridLayer.draw(ctx, frameData);
+        this.state.lineLayer.draw(ctx, frameData);
+        
+        ctx.restore();
+
+        this.state.satLayer.draw(ctx, frameData);
+    }
+
+    private updateFPS(currentTime: number): void {
+        this.state.frameCount++;
+        
+        if (currentTime - this.state.lastFpsUpdate >= 1000) {
+            this.state.fps = this.state.frameCount;
+            this.state.frameCount = 0;
+            this.state.lastFpsUpdate = currentTime;
+            
+            const debugInfo = document.getElementById('debug-info');
+            if (debugInfo) {
+                debugInfo.textContent = `FPS: ${this.state.fps} | Cells: ${this.state.frameData.cells.length}`;
+            }
+        }
+    }
+
+    public dispose(): void {
+        if (this.state.animationId !== null) {
+            cancelAnimationFrame(this.state.animationId);
+        }
+        this.state.panController.dispose();
+        console.log('[HexEyes] Aplicación disposed');
+    }
 }
+
+let app: HexEyesApp | null = null;
+
+window.addEventListener('load', () => {
+    app = new HexEyesApp();
+});
+
+window.addEventListener('beforeunload', () => {
+    if (app) {
+        app.dispose();
+    }
+});

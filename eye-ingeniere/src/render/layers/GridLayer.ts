@@ -1,121 +1,111 @@
-//--- hex-eyes-engine/src/render/layers/GridLayer.ts 
-/**
- * GridLayer — Capa de renderizado del grid hexagonal
- *
- * [FASE] 4 — Render
- * [ALGORITMO ORIGINAL] Funciones de renderizado de shapes con curvas Bézier
- * [CRITERIO DE ACEPTACIÓN]
- *   - Dibuja todas las celdas visibles dentro del viewport
- *   - Dibuja formas Bézier reales con colores correctos
- *   - Pupila se desplaza según pupilAngleRad y pupilOffset01
- */
-
-import type { FrameData, EyeVisualState } from '@core/types';
-import { DEFAULT_CONFIG } from '@core/types';
-import type { IRenderLayer } from './types';
-import { getShape } from '../../data/shapes';
-
-export interface GridLayerConfig {
-  showDebugBounds?: boolean;
-}
+import type { IRenderLayer, FrameData, Vec2, ShapeId } from '../../core/types';
+import { evaluateCubicBezier } from '../../tracking/BezierSubdivision';
+import { SHAPES } from '../../data/shapes';
 
 export class GridLayer implements IRenderLayer {
-  private readonly showDebugBounds: boolean;
+    draw(ctx: CanvasRenderingContext2D, frameData: FrameData): void {
+        ctx.save();
+        
+        for (const cell of frameData.cells) {
+            const key = `${cell.col},${cell.row}`;
+            const eyeState = frameData.eyeStates.get(key);
+            
+            if (!eyeState) continue;
 
-  constructor(config: GridLayerConfig = {}) {
-    this.showDebugBounds = config.showDebugBounds ?? false;
-  }
-
-  draw(ctx: CanvasRenderingContext2D, frameData: FrameData): void {
-    const { cells, eyeStates } = frameData;
-
-    for (const cell of cells) {
-      const coordKey = `${cell.col},${cell.row}`;
-      const eyeState = eyeStates.get(coordKey);
-
-      if (!eyeState) continue;
-
-      ctx.save();
-      ctx.translate(cell.center.x, cell.center.y);
-      ctx.scale(cell.scale01, cell.scale01);
-      ctx.globalAlpha = cell.alpha01;
-
-      this.drawEyeShape(ctx, eyeState, DEFAULT_CONFIG.hexSizeBase / 2);
-
-      ctx.restore();
+            ctx.globalAlpha = cell.alpha01;
+            
+            const centerX = cell.center.x;
+            const centerY = cell.center.y;
+            const baseScale = 80 * cell.scale01;
+            
+            ctx.translate(centerX, centerY);
+            ctx.scale(baseScale, baseScale);
+            
+            this.drawShape(ctx, eyeState.shapeId, eyeState.colorway.hex, eyeState.pupilAngleRad, eyeState.pupilOffset01);
+            
+            ctx.scale(1 / baseScale, 1 / baseScale);
+            ctx.translate(-centerX, -centerY);
+        }
+        
+        ctx.restore();
     }
 
-    if (this.showDebugBounds) {
-      this.drawDebugBounds(ctx);
+    private drawShape(
+        ctx: CanvasRenderingContext2D,
+        shapeId: ShapeId,
+        colorHex: string,
+        pupilAngleRad: number,
+        pupilOffset01: number
+    ): void {
+        const shapeDef = SHAPES[shapeId];
+        if (!shapeDef) return;
+
+        ctx.save();
+        
+        ctx.beginPath();
+        const curves = shapeDef.curves;
+        if (curves.length > 0) {
+            const startPoint = evaluateCubicBezier(curves[0], 0);
+            ctx.moveTo(startPoint.x, startPoint.y);
+            
+            for (const curve of curves) {
+                const points = this.sampleCurve(curve, 8);
+                for (let i = 1; i < points.length; i++) {
+                    ctx.lineTo(points[i].x, points[i].y);
+                }
+            }
+            ctx.closePath();
+        }
+
+        ctx.fillStyle = this.adjustColorBrightness(colorHex, 0.1);
+        ctx.fill();
+        
+        ctx.strokeStyle = colorHex;
+        ctx.lineWidth = 0.015;
+        ctx.stroke();
+
+        const irisRadius = 0.25;
+        const pupilDistance = 0.15 * pupilOffset01;
+        const pupilX = Math.cos(pupilAngleRad) * pupilDistance;
+        const pupilY = Math.sin(pupilAngleRad) * pupilDistance;
+
+        ctx.beginPath();
+        ctx.arc(pupilX, pupilY, irisRadius, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.fill();
+
+        const pupilRadius = 0.08;
+        ctx.beginPath();
+        ctx.arc(pupilX, pupilY, pupilRadius, 0, Math.PI * 2);
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fill();
+
+        const highlightX = pupilX - pupilRadius * 0.3;
+        const highlightY = pupilY - pupilRadius * 0.3;
+        ctx.beginPath();
+        ctx.arc(highlightX, highlightY, pupilRadius * 0.4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.fill();
+
+        ctx.restore();
     }
-  }
 
-  private drawEyeShape(
-    ctx: CanvasRenderingContext2D,
-    eyeState: EyeVisualState,
-    baseSize: number
-  ): void {
-    const shape = getShape(eyeState.shapeId);
-    const scale = baseSize / 100;
-
-    ctx.save();
-    ctx.scale(scale, scale);
-    ctx.fillStyle = eyeState.colorway.hex;
-    ctx.strokeStyle = this.adjustColorBrightness(eyeState.colorway.hex, -20);
-    ctx.lineWidth = 2;
-
-    ctx.beginPath();
-    for (let i = 0; i < shape.length; i++) {
-      const curve = shape[i];
-      if (i === 0) {
-        ctx.moveTo(curve.p0.x, curve.p0.y);
-      }
-      ctx.bezierCurveTo(curve.p1.x, curve.p1.y, curve.p2.x, curve.p2.y, curve.p3.x, curve.p3.y);
+    private sampleCurve(curve: any, segments: number): Vec2[] {
+        const points: Vec2[] = [];
+        for (let i = 0; i <= segments; i++) {
+            const t = i / segments;
+            points.push(evaluateCubicBezier(curve, t));
+        }
+        return points;
     }
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
 
-    this.drawPupil(ctx, eyeState);
-    ctx.restore();
-  }
+    private adjustColorBrightness(hex: string, factor: number): string {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
 
-  private drawPupil(ctx: CanvasRenderingContext2D, eyeState: EyeVisualState): void {
-    const pupilRadius = 15;
-    const orbitRadius = DEFAULT_CONFIG.pupilOrbitOffset * eyeState.pupilOffset01;
-    const pupilX = Math.cos(eyeState.pupilAngleRad) * orbitRadius;
-    const pupilY = Math.sin(eyeState.pupilAngleRad) * orbitRadius;
-
-    ctx.beginPath();
-    ctx.arc(pupilX, pupilY, pupilRadius, 0, Math.PI * 2);
-    ctx.fillStyle = this.adjustColorBrightness(eyeState.colorway.hex, -40);
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.arc(pupilX - pupilRadius * 0.3, pupilY - pupilRadius * 0.3, pupilRadius * 0.25, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.fill();
-  }
-
-  private adjustColorBrightness(hex: string, amount: number): string {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-
-    const adjust = (channel: number) => Math.max(0, Math.min(255, channel + amount));
-
-    const newR = adjust(r);
-    const newG = adjust(g);
-    const newB = adjust(b);
-
-    return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
-  }
-
-  private drawDebugBounds(ctx: CanvasRenderingContext2D): void {
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(-10, -10, 20, 20);
-    ctx.restore();
-  }
+        const adjust = (val: number) => Math.min(255, Math.floor(val * (1 + factor)));
+        
+        return `#${adjust(r).toString(16).padStart(2, '0')}${adjust(g).toString(16).padStart(2, '0')}${adjust(b).toString(16).padStart(2, '0')}`;
+    }
 }

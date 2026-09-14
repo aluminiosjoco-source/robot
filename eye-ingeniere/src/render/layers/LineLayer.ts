@@ -1,131 +1,80 @@
-//--- hex-eyes-engine/src/render/layers/LineLayer.ts
-/**
- * LineLayer — Capa de renderizado de líneas de conexión
- *
- * [FASE] 4 — Render
- * [ALGORITMO ORIGINAL] Funciones relacionadas con Ve (lineThickness), fa (curveTightness)
- * [CRITERIO DE ACEPTACIÓN]
- *   - Dibuja líneas curvas entre celdas conectadas
- *   - Aplica grosor y alpha configurados
- *   - Usa curvas de Bézier cuadráticas para suavidad
- */
-
-import type { FrameData, Vec2, CellPlacement } from '@core/types';
-import { DEFAULT_CONFIG } from '@core/types';
-import type { IRenderLayer } from './types';
-
-export interface LineLayerConfig {
-  showAllConnections?: boolean;
-}
+import type { IRenderLayer, FrameData, OffsetCoord, Vec2 } from '../../core/types';
+import { DEFAULT_CONFIG } from '../../core/types';
 
 export class LineLayer implements IRenderLayer {
-  private readonly showAllConnections: boolean;
+    private getNeighbors(coord: OffsetCoord): OffsetCoord[] {
+        const isEvenRow = coord.row % 2 === 0;
+        
+        const evenRowDirs = [
+            { col: 1, row: 0 }, { col: 0, row: -1 }, { col: -1, row: -1 },
+            { col: -1, row: 0 }, { col: 0, row: 1 }, { col: 1, row: 1 }
+        ];
+        
+        const oddRowDirs = [
+            { col: 1, row: 0 }, { col: 1, row: -1 }, { col: 0, row: -1 },
+            { col: -1, row: 0 }, { col: 0, row: 1 }, { col: 1, row: 1 }
+        ];
 
-  constructor(config: LineLayerConfig = {}) {
-    this.showAllConnections = config.showAllConnections ?? false;
-  }
-
-  draw(ctx: CanvasRenderingContext2D, frameData: FrameData): void {
-    const { cells } = frameData;
-
-    ctx.save();
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    const isMobile = ctx.canvas.width < 768;
-    const lineThickness = isMobile
-      ? DEFAULT_CONFIG.lineThicknessMobile
-      : DEFAULT_CONFIG.lineThickness;
-
-    ctx.lineWidth = lineThickness;
-    ctx.globalAlpha = DEFAULT_CONFIG.lineAlpha;
-
-    this.drawNeighborConnections(ctx, cells, lineThickness);
-
-    ctx.restore();
-  }
-
-  private drawNeighborConnections(
-    ctx: CanvasRenderingContext2D,
-    cells: CellPlacement[],
-    lineThickness: number
-  ): void {
-    const cellMap = new Map<string, CellPlacement>();
-    for (const cell of cells) {
-      cellMap.set(`${cell.col},${cell.row}`, cell);
+        const dirs = isEvenRow ? evenRowDirs : oddRowDirs;
+        return dirs.map(d => ({ col: coord.col + d.col, row: coord.row + d.row }));
     }
 
-    const neighborDirs = [
-      { col: 1, row: 0 },
-      { col: 0, row: 1 },
-      { col: -1, row: 1 },
-      { col: -1, row: 0 },
-      { col: 0, row: -1 },
-      { col: 1, row: -1 }
-    ];
+    draw(ctx: CanvasRenderingContext2D, frameData: FrameData): void {
+        const isMobile = window.innerWidth < 640;
+        const lineThickness = isMobile ? DEFAULT_CONFIG.lineThicknessMobile : DEFAULT_CONFIG.lineThickness;
+        const lineAlpha = DEFAULT_CONFIG.lineAlpha;
+        const curveMargin = DEFAULT_CONFIG.lineCurveMargin;
+        const curveTightness = DEFAULT_CONFIG.lineCurveTightness;
 
-    const drawnConnections = new Set<string>();
+        ctx.save();
+        ctx.strokeStyle = `rgba(255, 255, 255, ${lineAlpha})`;
+        ctx.lineWidth = lineThickness;
+        ctx.lineCap = 'round';
 
-    for (const cell of cells) {
-      for (const dir of neighborDirs) {
-        const neighborCoord = {
-          col: cell.col + dir.col,
-          row: cell.row + dir.row
-        };
+        const cellMap = new Map<string, Vec2>();
+        for (const cell of frameData.cells) {
+            const key = `${cell.col},${cell.row}`;
+            cellMap.set(key, cell.center);
+        }
 
-        const neighborKey = `${neighborCoord.col},${neighborCoord.row}`;
-        const neighbor = cellMap.get(neighborKey);
+        const drawnLines = new Set<string>();
 
-        if (!neighbor) continue;
+        for (const cell of frameData.cells) {
+            const neighbors = this.getNeighbors({ col: cell.col, row: cell.row });
+            
+            for (const neighbor of neighbors) {
+                const neighborKey = `${neighbor.col},${neighbor.row}`;
+                const neighborPos = cellMap.get(neighborKey);
+                
+                if (!neighborPos) continue;
 
-        const connKey = [
-          `${cell.col},${cell.row}`,
-          neighborKey
-        ].sort().join('|');
+                const lineKey = [cell.col, cell.row, neighbor.col, neighbor.row]
+                    .sort()
+                    .join('-');
+                
+                if (drawnLines.has(lineKey)) continue;
+                drawnLines.add(lineKey);
 
-        if (drawnConnections.has(connKey)) continue;
+                const midX = (cell.center.x + neighborPos.x) / 2;
+                const midY = (cell.center.y + neighborPos.y) / 2;
+                
+                const dx = neighborPos.x - cell.center.x;
+                const dy = neighborPos.y - cell.center.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                const perpX = -dy / dist * curveMargin;
+                const perpY = dx / dist * curveMargin;
+                
+                const cpX = midX + perpX * curveTightness;
+                const cpY = midY + perpY * curveTightness;
 
-        this.drawCurvedLine(
-          ctx,
-          cell.center,
-          neighbor.center,
-          lineThickness
-        );
+                ctx.beginPath();
+                ctx.moveTo(cell.center.x, cell.center.y);
+                ctx.quadraticCurveTo(cpX, cpY, neighborPos.x, neighborPos.y);
+                ctx.stroke();
+            }
+        }
 
-        drawnConnections.add(connKey);
-      }
+        ctx.restore();
     }
-  }
-
-  private drawCurvedLine(
-    ctx: CanvasRenderingContext2D,
-    start: Vec2,
-    end: Vec2,
-    lineThickness: number
-  ): void {
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    if (dist < 1) return;
-
-    const margin = DEFAULT_CONFIG.lineCurveMargin;
-    const tightness = DEFAULT_CONFIG.lineCurveTightness;
-
-    const nx = -dy / dist;
-    const ny = dx / dist;
-
-    const midX = (start.x + end.x) / 2;
-    const midY = (start.y + end.y) / 2;
-
-    const controlX = midX + nx * margin * tightness;
-    const controlY = midY + ny * margin * tightness;
-
-    ctx.beginPath();
-    ctx.moveTo(start.x, start.y);
-    ctx.quadraticCurveTo(controlX, controlY, end.x, end.y);
-
-    ctx.strokeStyle = '#cccccc';
-    ctx.stroke();
-  }
 }
